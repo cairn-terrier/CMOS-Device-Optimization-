@@ -1,0 +1,302 @@
+--- originals/Code_original.txt
++++ current_code/sprocess_fps.cmd
+@@ -1,12 +1,17 @@
++# EE4623 PART 1 -- 2 um NMOS baseline (SENTAURUS PROCESS / SWB)
++# Paste this entire file into the original project's SProcess command editor.
++# SWB table: Domain=NMOS, Lgate=2.0 (um); delete/disable the PMOS experiments.
++# Add tempOx=1000.0 (C), timeOx=30.0 (min): UNCALIBRATED oxidation trial.
++# Keep CMOS130_lyt.mac and the original split/tool setup in the project folder.
++# Other defaults are local fset variables below.
++# This file builds a device. Run the supplied SDevice and Inspect files for VT0.
++# Expected VT0 ~0.7--0.8 V is a comparison target, NOT a simulation input.
++# Process choices not specified in green are documented in README.md.
++
+ #header
+ 
+-#if [string match "NMOS" @Domain@]
+- set Type  NMOS
+- 
+-#elif [string match "PMOS" @Domain@]
+- set Type  PMOS
+- 
+-#endif
++# NMOS only. In the SWB table keep ONE experiment: Domain=NMOS, Lgate=2.0.
++set Type NMOS
+ 
+ icwb filename= "CMOS130_lyt.mac" scale= 1e-3
+ 
+@@ -31,7 +36,7 @@
+ fset LYmax [icwb bbox ymax]
+ LogFile "icwb: Layout Bounding Box -> Lymin -> $LYmin ;  Lymax -> $LYmax"
+ 
+-fset Ymid [expr ($Ymax-$Ymin)/2.0]
++fset Ymid [expr ($Ymax+$Ymin)/2.0]
+ set CNode @node@
+ 
+ #endheader
+@@ -53,7 +58,21 @@
+ fset Lg2 @<Lgate/2.0>@
+ 
+ fset PolyReox 0.005
+-fset gox 0.0015
++# Assignment TARGET: 300 Angstrom = 30 nm = 0.030 um; measure actual tox.
++fset gox 0.030
++fset Nsub 1.35e15
++fset Qvt  2.0e12
++fset Evt  30.0
++# REQUIRED: thermally grow the gate oxide in O2.
++# Add SWB parameters tempOx (C) and timeOx (min).
++# Starting trial ONLY: tempOx=1000.0, timeOx=30.0.
++# Calibrate timeOx until the MEASURED channel oxide is 0.030 um.
++# gox is a geometry target; it does not prescribe the grown oxide thickness.
++fset tempOx @tempOx@
++fset timeOx @timeOx@
++# Inherited source/drain implant: not an assignment green-highlighted default.
++fset Qsd 5.5e15
++fset Esd 55.0
+ fset SiRecess 0.005
+ fset Lsp 0.035
+ fset Tsub 10.0
+@@ -105,7 +124,7 @@
+ line y location= $Ymid   spacing= 100.0 tag= right
+ 
+ region Silicon substrate xlo= top xhi= bottom ylo= left yhi= right
+-init Silicon field= Boron concentration= 1.0e15 wafer.orient= {0 0 1} flat.orient= {1 1 0} slice.angle= 45 !DelayFullD
++init Silicon field= Boron concentration= $Nsub wafer.orient= {0 0 1} flat.orient= {1 1 0} slice.angle= 45 !DelayFullD
+ refinebox interface.materials= {Silicon PolySilicon Oxide}
+ 
+ AdvancedCalibration
+@@ -169,42 +188,21 @@
+ 
+ grid remesh
+ 
+-## ---------- well and Vt adjustment implant and anneal -----------------------
++## ---------- Single NMOS threshold-adjust implant -----------------------
++# The p-type substrate supplies the body; no extra deep p-well implant.
++# Dose in cm^-2, energy in keV. Keep FastMode=0 for electrical results.
+ photo mask= pWELL_n thickness= 1.0
+ if { $debug } { WriteBND }
+-
+-if { $FastMode != 1  } {
+-implant Boron dose= 1.0e12 energy= 250 tilt= 0.0
+-implant Boron dose= 1.0e12 energy= 200 tilt= 0.0
+-implant Boron dose= 1.0e12 energy= 100 tilt= 0.0
+-implant Boron dose= 5.0e12 energy=  80 tilt= 0.0
+-implant Boron dose= 5.0e12 energy=  40 tilt= 0.0
+-implant Boron dose= 6.0e12 energy=  20 tilt= 0.0
+-implant Boron dose= 6.0e12 energy=  10 tilt= 0.0
+-}
+-
++if { $FastMode != 1 } {
++implant Boron dose= $Qvt energy= $Evt tilt= 0.0
++}
+ strip Photoresist
+ 
+-photo mask= pWELL_p thickness= 1.0
+-if { $debug } { WriteBND }
+-
+-if { $FastMode != 1  } {
+-implant Phosphorus dose= 5.0e12 energy= 300 tilt= 0.0
+-implant Phosphorus dose= 5.0e12 energy= 250 tilt= 0.0
+-implant Phosphorus dose= 8.0e12 energy= 100 tilt= 0.0
+-implant Phosphorus dose= 8.0e12 energy=  50 tilt= 0.0
+-implant Phosphorus dose= 8.5e12 energy=  20 tilt= 0.0
+-}
+-
+-strip Photoresist
+-
+-temp_ramp name= well time= 0.03  temp= 600.0  ramprate= 250.0
+-temp_ramp name= well time= 0.333 temp= 1050.0 ramprate= 0.0
+-temp_ramp name= well time= 0.083 temp= 1050.0 ramprate= -90.0
+-
+-if { $FastMode != 1  } {
+-diffuse stress.relax temp_ramp= well
+-} 
++# Simplified activation using the original well anneal's peak hold.
++# This thermal budget is inherited, not specified by the assignment.
++if { $FastMode != 1 } {
++diffuse stress.relax time= 20<s> temp= 1050<C>
++}
+ 
+ # -------------------------------------------------------------------- #
+ SetPlxList { BTotal PTotal }
+@@ -217,17 +215,13 @@
+ 
+ #split @Poly@
+ 
+-## ---------- gate oxide --------------------------------------
+-deposit material= {Oxide} type= isotropic rate= $gox time= 1.0 
+-if { $debug } { WriteBND }
+-
+-temp_ramp name= gateox time= 24    temp= 600.0 ramprate= 0.0972
+-temp_ramp name= gateox time= 20    temp= 740.0 ramprate= 0.0
+-temp_ramp name= gateox time= 0.093 temp= 740.0 ramprate= -25.0
+-
+-if { $FastMode != 1  } {
+-diffuse stress.relax temp_ramp= gateox
+-}
++## ---------- Gate oxide: thermal growth in pure O2 ----------------------
++# One oxidation command; no gate-oxide deposition or inert substitute.
++# O2 is pure oxygen at 1 atm. Temperature is C; time is minutes.
++# Actual thickness is a simulation OUTPUT, to be calibrated to 30 nm.
++diffuse temperature= $tempOx<C> time= $timeOx<min> O2
++struct tdr= n@node@_gateoxide
++if { $debug } { WriteBND }
+ 
+ ## ---------- poly silicon deposition and etching ---------------
+ deposit material= {Poly} type= isotropic  thickness= $Tpoly
+@@ -283,47 +277,17 @@
+ 
+ grid remesh
+ 
+-photo mask= pWELL_n thickness= 0.5
+-if { $debug } { WriteBND }
+-
+-## ---------- Halo implantation -----------------------
+-if { $FastMode != 1  } {
+-implant Boron dose= 8.0e12 energy= 25.0 tilt= 30 rotation= 0   
+-implant Boron dose= 8.0e12 energy= 25.0 tilt= 30 rotation= 90  
+-implant Boron dose= 8.0e12 energy= 25.0 tilt= 30 rotation= 180 
+-implant Boron dose= 8.0e12 energy= 25.0 tilt= 30 rotation= -90 
+-
+-## ---------- n S/D Extension implantation -----------------------
+-implant Arsenic dose= 2.65e15 energy= 6.0 tilt= 0.0
+-}
+-
+-strip Photoresist
+-if { $debug } { WriteBND }
+-
+-photo mask= pWELL_p thickness= 0.5
+-if { $debug } { WriteBND }
+-
+-if { $FastMode != 1  } {
+-implant Arsenic dose= 3.3e13 energy= 28.0 tilt= 30 rotation= 0   
+-implant Arsenic dose= 3.3e13 energy= 28.0 tilt= 30 rotation= 90 
+-implant Arsenic dose= 3.3e13 energy= 28.0 tilt= 30 rotation= 180 
+-implant Arsenic dose= 3.3e13 energy= 28.0 tilt= 30 rotation= -90
+-
+-## ---------- p S/D Extension implantation -----------------------
+-implant Boron dose= 2.75e15  energy= 0.7 tilt= 0
+-}
+-
+-strip Photoresist
+-if { $debug } { WriteBND }
+-
+-# -------------------------------------------------------------------- #
+-SetPlxList { Boron_Implant Arsenic_Implant }
+-WritePlx n@node@_extimp.plx y= [expr $Ymid-($Lg2-0.01)]
+-# -------------------------------------------------------------------- #
+-
+-struct tdr= n@node@_asImplant
+-
+-diffuse time= 1.5<s> temp= 1000<C>
++## ---------- Halo and LDD disabled for the initial baseline -------------
++# The following original NMOS steps are intentionally commented out.
++# photo mask= pWELL_n thickness= 0.5
++# implant Boron dose= 8.0e12 energy= 25.0 tilt= 30 rotation= 0
++# implant Boron dose= 8.0e12 energy= 25.0 tilt= 30 rotation= 90
++# implant Boron dose= 8.0e12 energy= 25.0 tilt= 30 rotation= 180
++# implant Boron dose= 8.0e12 energy= 25.0 tilt= 30 rotation= -90
++# implant Arsenic dose= 2.65e15 energy= 6.0 tilt= 0.0
++# strip Photoresist
++# diffuse time= 1.5<s> temp= 1000<C>
++# All PMOS halo / extension operations have been removed.
+ 
+ #split @SD@
+ 
+@@ -345,21 +309,13 @@
+ if { $debug } { WriteBND }
+ 
+ if { $FastMode != 1  } {
+-implant Arsenic dose= 5.5e15 energy= 55.0 tilt= 0.0 rotation= 0.0
++implant Arsenic dose= $Qsd energy= $Esd tilt= 0.0 rotation= 0.0
+ }
+ 
+ strip Photoresist
+ if { $debug } { WriteBND }
+ 
+-photo mask= pWELL_p thickness= 0.5
+-if { $debug } { WriteBND }
+-
+-if { $FastMode != 1  } {
+-implant Boron dose= 2.0e15 energy= 5.5 tilt= 0.0 rotation= 0.0
+-}
+-
+-strip Photoresist
+-if { $debug } { WriteBND }
++# PMOS HDD implant removed: NMOS-only baseline.
+ 
+ struct tdr= n@node@_asImpHDD
+ 
+@@ -416,11 +372,14 @@
+ 
+ # Mesh Multiplication factor for device
+ fset fd 1.0
+-fset Xbot 0.5
++# Keep the full substrate. The original 0.5 um body cut is too shallow
++# to assume harmless for this lightly doped long-channel baseline.
++fset Xbot $Tsub
+ 
+ # Truncate Top-bottom
+ transform cut min= {-10 -10 -10} max= {$Xbot 10 10}
+-strip Oxide
++# Preserve dielectric regions, including the gate oxide, in the device mesh.
++# strip Oxide
+ strip Tungsten
+ strip Aluminum
+ strip Oxynitride
+@@ -443,6 +402,9 @@
+      set.normal.growth.ratio.2d= 4.0
+ 
+ # Refinement strategy
++refinebox name= Device_Bulk min= {0.0 $Ymin} max= {$Xbot $Ymid} \
++    xrefine= 0.25 yrefine= 0.1 Silicon
++
+ refinebox name= Device_Active mask= Active_p \
+  	extend= 0.01 extrusion.min= -$Tpoly extrusion.max= 0.3 \
+  	refine.fields= { NetActive } def.max.asinhdiff= 1.0 \
+@@ -455,7 +417,7 @@
+  	xrefine= 0.002/$fd  yrefine= 0.002/$fd zrefine= $IsoPitch/(20.0*$fd) materials= {Silicon}
+ 
+ refinebox name= Device_IF mask= Active_p \
+-        extend= 0.005 extrusion.min= -0.01 extrusion.max= $Divot-0.002 \
++        extend= 0.005 extrusion.min= -($gox+0.01) extrusion.max= 0.04 \
+         min.normal.size= 0.0002/$fd normal.growth.ratio= 1.2 \
+         interface.mat.pairs= {Silicon Oxide PolySilicon Oxide} 
+         	
+@@ -464,28 +426,25 @@
+ # Constant Poly Doping and Contact
+ term name=NetActive PolySilicon delete
+ 
+-#if [string match "NMOS" @Domain@]
+-
++# Explicit n+ polysilicon gate retained from the source template.
+ set SilicideX -0.001
+ select z= "1.5e20" name= NetActive store PolySilicon
+ 
+-#elif [string match "PMOS" @Domain@]
+-
+-set SilicideX -0.001
+-select z= "-2.5e20"  name= NetActive store PolySilicon
+-
+-#endif
+-
+ # Contacts
+-icwb.contact.mask layer.name= "GATE" name= gate box PolySilicon xlo= -$Tpoly-0.05 xhi=-$Tpoly+0.05 
++icwb.contact.mask layer.name= "GATE" name= gate box PolySilicon xlo= -$Tpoly-$gox-0.05 xhi= -$Tpoly-$gox+0.05 
+ icwb.contact.mask layer.name= "SOURCE" name= source point CobaltSilicide x= $SilicideX replace
+ contact bottom name= substrate Silicon
+ 
++# Final channel profile at the symmetry plane; compare with the assignment.
++SetPlxList { BTotal BActive AsTotal AsActive NetActive }
++WritePlx n@node@_channel_final.plx y= $Ymid
++
+ # Saving
+ struct tdr= n@node@_half 
+ 
+ if { [catch { exec tdx --mirr-tdr -Y -ren source=drain n@node@_half_fps n@node@_fps} Err] !=0 } {
+     LogFile $Err
++    error "TDR reflection failed; do not run SDevice on a half-device."
+ }
+ 
+ exit
