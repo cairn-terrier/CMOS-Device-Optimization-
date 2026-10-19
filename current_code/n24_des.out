@@ -25,10 +25,12 @@
 	Process ID: 3980084
 	Number of processors: 48
 	Domain Name: (none)
+
+	The following GPU configuration has been detected: 
+	Failed to find devices or a proper device driver setup
+
 	Date: Mon Oct 19 15:44:08 2026  (+08)
 
-Parsing "/storage/apps/synopsys/sentaurus/current/tcad/Y-2026.03/lib/Molefraction.txt"
-Inputfile = pp24_des.cmd
 Mon Oct 19 15:44:08 2026: checked out 1 sdevice license(s)
 Parsing circuit file /storage/apps/synopsys/sentaurus/current/tcad/Y-2026.03/linux64/lib/sdevice/sd_hb_vsource2.ccf
 Parsing circuit file /storage/apps/synopsys/sentaurus/current/tcad/Y-2026.03/linux64/lib/sdevice/sd_hb_isource2.ccf
@@ -572,5 +574,8 @@ Reading grid 'n18_fps.tdr' ...
   Number of grid points is 53948.
 done.
 
-Adding interfaces and contacts ...Mon Oct 19 15:44:08 2026: checked in 2 sparallel license(s)
+Adding interfaces and contacts ...
+Tried to use non-existing contact `source' !
+
+Mon Oct 19 15:44:08 2026: checked in 2 sparallel license(s)
 Mon Oct 19 15:44:08 2026: checked in 1 sdevice license(s)
