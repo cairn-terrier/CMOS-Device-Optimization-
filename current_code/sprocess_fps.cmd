@@ -427,7 +427,9 @@ grid remesh
 term name=NetActive PolySilicon delete
 
 # Explicit n+ polysilicon gate retained from the source template.
-set SilicideX -0.001
+# Trial depth: 0.010 um = 10 nm.
+# Confirm this point lies inside the source-side CobaltSilicide.
+set SilicideX 0.010
 select z= "1.5e20" name= NetActive store PolySilicon
 
 # Contacts
