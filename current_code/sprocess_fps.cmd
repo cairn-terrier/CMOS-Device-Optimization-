@@ -220,6 +220,12 @@ if { $debug } { WriteBND }
 # O2 is pure oxygen at 1 atm. Temperature is C; time is minutes.
 # Actual thickness is a simulation OUTPUT, to be calibrated to 30 nm.
 diffuse temperature= $tempOx<C> time= $timeOx<min> O2
+
+# Measure the grown oxide and display tox in Workbench.
+set oxide [lindex [layers y= $Ymid name= BTotal] 1]
+set tox [expr {[lindex $oxide 1] - [lindex $oxide 0]}]
+puts "DOE: tox [format %.6f $tox]"
+
 struct tdr= n@node@_gateoxide
 if { $debug } { WriteBND }
 
